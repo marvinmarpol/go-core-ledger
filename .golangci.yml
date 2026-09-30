@@ -1,0 +1,29 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - errcheck
+    - staticcheck
+    - govet
+    - revive
+    - ineffassign
+    - unused
+    - gosec
+    - wrapcheck
+    - noctx
+  settings:
+    errcheck:
+      check-type-assertions: true
+
+issues:
+  exclude-rules:
+    - path: "_test\\.go"
+      linters:
+        - wrapcheck
+        - errcheck
+    - path: "wire_gen\\.go"
+      linters:
+        - all
