@@ -136,7 +136,7 @@ type JournalEntry struct {
 }
 
 type OutboxEvent struct {
-	ID            string             `json:"id"`
+	ID            pgtype.UUID        `json:"id"`
 	AggregateType string             `json:"aggregate_type"`
 	AggregateID   string             `json:"aggregate_id"`
 	EventType     string             `json:"event_type"`

@@ -8,6 +8,8 @@ package store
 import (
 	"context"
 	"encoding/json"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const getUnpublishedOutboxEvents = `-- name: GetUnpublishedOutboxEvents :many
@@ -53,7 +55,7 @@ RETURNING id, aggregate_type, aggregate_id, event_type, payload, published_at, c
 `
 
 type InsertOutboxEventParams struct {
-	ID            string          `json:"id"`
+	ID            pgtype.UUID     `json:"id"`
 	AggregateType string          `json:"aggregate_type"`
 	AggregateID   string          `json:"aggregate_id"`
 	EventType     string          `json:"event_type"`
@@ -88,7 +90,7 @@ WHERE id = $1
 RETURNING id, aggregate_type, aggregate_id, event_type, payload, published_at, created_at
 `
 
-func (q *Queries) MarkOutboxEventPublished(ctx context.Context, id string) (OutboxEvent, error) {
+func (q *Queries) MarkOutboxEventPublished(ctx context.Context, id pgtype.UUID) (OutboxEvent, error) {
 	row := q.db.QueryRow(ctx, markOutboxEventPublished, id)
 	var i OutboxEvent
 	err := row.Scan(

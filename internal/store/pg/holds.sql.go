@@ -83,6 +83,27 @@ func (q *Queries) GetExpiredHolds(ctx context.Context, limit int32) ([]Hold, err
 	return items, nil
 }
 
+const getHold = `-- name: GetHold :one
+SELECT id, account_id, amount, currency, status, expires_at, external_ref, created_at, updated_at FROM holds WHERE id = $1
+`
+
+func (q *Queries) GetHold(ctx context.Context, id string) (Hold, error) {
+	row := q.db.QueryRow(ctx, getHold, id)
+	var i Hold
+	err := row.Scan(
+		&i.ID,
+		&i.AccountID,
+		&i.Amount,
+		&i.Currency,
+		&i.Status,
+		&i.ExpiresAt,
+		&i.ExternalRef,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getHoldForUpdate = `-- name: GetHoldForUpdate :one
 SELECT id, account_id, amount, currency, status, expires_at, external_ref, created_at, updated_at FROM holds WHERE id = $1 FOR UPDATE
 `

@@ -3,6 +3,9 @@ INSERT INTO holds (id, account_id, amount, currency, expires_at, external_ref)
 VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
+-- name: GetHold :one
+SELECT * FROM holds WHERE id = $1;
+
 -- name: GetHoldForUpdate :one
 SELECT * FROM holds WHERE id = $1 FOR UPDATE;
 

@@ -1,0 +1,173 @@
+syntax = "proto3";
+
+package ledger.v1;
+
+option go_package = "go-core-ledger/api/gen/ledger/v1;ledgerv1";
+
+import "google/protobuf/timestamp.proto";
+
+// ── Scalar types ──────────────────────────────────────────────────────────────
+
+// Money represents an amount in minor units (e.g. IDR 1500 = value:1500 currency:"IDR").
+// Never use float fields for money.
+message Money {
+  int64  value    = 1;
+  string currency = 2;
+}
+
+// ── Domain messages ───────────────────────────────────────────────────────────
+
+message Account {
+  string id             = 1;
+  string currency       = 2;
+  Money  balance        = 3;
+  Money  held_amount    = 4;
+  Money  floor          = 5;
+  bool   allow_negative = 6;
+  int64  version        = 7;
+  string external_ref   = 8;
+}
+
+message JournalEntry {
+  string                    id              = 1;
+  string                    idempotency_key = 2;
+  google.protobuf.Timestamp business_date   = 3;
+  google.protobuf.Timestamp value_date      = 4;
+  google.protobuf.Timestamp booked_at       = 5;
+  string                    reverses_id     = 6;
+  string                    external_ref    = 7;
+  map<string, string>       metadata        = 8;
+}
+
+message Posting {
+  string id         = 1;
+  string entry_id   = 2;
+  string account_id = 3;
+  Money  amount     = 4;
+  string direction  = 5; // "DEBIT" or "CREDIT"
+}
+
+message Hold {
+  string                    id           = 1;
+  string                    account_id   = 2;
+  Money                     amount       = 3;
+  string                    status       = 4; // "active" | "captured" | "voided" | "expired"
+  google.protobuf.Timestamp expires_at   = 5;
+  string                    external_ref = 6;
+}
+
+// ── Requests & responses ──────────────────────────────────────────────────────
+
+// -- Accounts --
+
+message CreateAccountRequest {
+  string currency       = 1;
+  Money  floor          = 2;
+  bool   allow_negative = 3;
+  string external_ref   = 4;
+}
+
+message CreateAccountResponse {
+  Account account = 1;
+}
+
+message GetAccountRequest {
+  string id = 1;
+}
+
+message GetAccountResponse {
+  Account account = 1;
+}
+
+// -- Postings --
+
+message PostingLeg {
+  string account_id = 1;
+  Money  amount     = 2;
+  string direction  = 3; // "DEBIT" or "CREDIT"
+}
+
+message PostEntryRequest {
+  string              idempotency_key = 1;
+  google.protobuf.Timestamp business_date = 2;
+  google.protobuf.Timestamp value_date    = 3;
+  string              external_ref    = 4;
+  map<string, string> metadata        = 5;
+  repeated PostingLeg postings        = 6;
+}
+
+message PostEntryResponse {
+  JournalEntry      entry    = 1;
+  repeated Posting  postings = 2;
+}
+
+message GetEntryRequest {
+  string id = 1;
+}
+
+message GetEntryResponse {
+  JournalEntry     entry    = 1;
+  repeated Posting postings = 2;
+}
+
+message GetPostingsByAccountRequest {
+  string account_id = 1;
+}
+
+message GetPostingsByAccountResponse {
+  repeated Posting postings = 1;
+}
+
+// -- Holds --
+
+message ReserveHoldRequest {
+  string                    account_id   = 1;
+  Money                     amount       = 2;
+  google.protobuf.Timestamp expires_at   = 3;
+  string                    external_ref = 4;
+}
+
+message ReserveHoldResponse {
+  Hold hold = 1;
+}
+
+message CaptureHoldRequest {
+  string              hold_id          = 1;
+  string              idempotency_key  = 2;
+  google.protobuf.Timestamp business_date  = 3;
+  google.protobuf.Timestamp value_date     = 4;
+  string              credit_account_id = 5;
+  string              external_ref     = 6;
+  map<string, string> metadata         = 7;
+}
+
+message CaptureHoldResponse {
+  JournalEntry     entry    = 1;
+  repeated Posting postings = 2;
+}
+
+message VoidHoldRequest {
+  string hold_id = 1;
+}
+
+message VoidHoldResponse {
+  Hold hold = 1;
+}
+
+// ── Service ───────────────────────────────────────────────────────────────────
+
+service LedgerService {
+  // Accounts
+  rpc CreateAccount(CreateAccountRequest) returns (CreateAccountResponse);
+  rpc GetAccount(GetAccountRequest)       returns (GetAccountResponse);
+
+  // Journal entries & postings
+  rpc PostEntry(PostEntryRequest)                           returns (PostEntryResponse);
+  rpc GetEntry(GetEntryRequest)                             returns (GetEntryResponse);
+  rpc GetPostingsByAccount(GetPostingsByAccountRequest)     returns (GetPostingsByAccountResponse);
+
+  // Holds
+  rpc ReserveHold(ReserveHoldRequest) returns (ReserveHoldResponse);
+  rpc CaptureHold(CaptureHoldRequest) returns (CaptureHoldResponse);
+  rpc VoidHold(VoidHoldRequest)       returns (VoidHoldResponse);
+}

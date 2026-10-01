@@ -17,6 +17,7 @@ type Querier interface {
 	GetActiveHoldsByAccountID(ctx context.Context, accountID string) ([]Hold, error)
 	// Hold expiry worker: fetch expired active holds for processing.
 	GetExpiredHolds(ctx context.Context, limit int32) ([]Hold, error)
+	GetHold(ctx context.Context, id string) (Hold, error)
 	GetHoldForUpdate(ctx context.Context, id string) (Hold, error)
 	GetJournalEntry(ctx context.Context, id string) (JournalEntry, error)
 	GetJournalEntryByIdempotencyKey(ctx context.Context, idempotencyKey string) (JournalEntry, error)
@@ -29,7 +30,7 @@ type Querier interface {
 	InsertJournalEntry(ctx context.Context, arg InsertJournalEntryParams) (JournalEntry, error)
 	InsertOutboxEvent(ctx context.Context, arg InsertOutboxEventParams) (OutboxEvent, error)
 	InsertPosting(ctx context.Context, arg InsertPostingParams) (Posting, error)
-	MarkOutboxEventPublished(ctx context.Context, id string) (OutboxEvent, error)
+	MarkOutboxEventPublished(ctx context.Context, id pgtype.UUID) (OutboxEvent, error)
 	// Optimistic lock via version check; returns updated row or no rows if version mismatch.
 	UpdateAccountBalance(ctx context.Context, arg UpdateAccountBalanceParams) (Account, error)
 	UpdateHoldStatus(ctx context.Context, arg UpdateHoldStatusParams) (Hold, error)
