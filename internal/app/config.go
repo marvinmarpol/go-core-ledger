@@ -16,7 +16,7 @@ type Config struct {
 	DBUser         string `env:"LEDGER_DB_USER" env-default:"admin"`
 	DBPassword     string `env:"LEDGER_DB_PASSWORD" env-default:"admin123"`
 	DBName         string `env:"LEDGER_DB_NAME" env-default:"core_ledger"`
-	DBPoolSize     int    `env:"LEDGER_DB_POOL_SIZE" env-default:"10"`
+	DBPoolSize     int32  `env:"LEDGER_DB_POOL_SIZE" env-default:"10"`
 	DBMaxRetries   int    `env:"LEDGER_DB_MAX_RETRIES" env-default:"3"`
 	DBRetryDelay   int    `env:"LEDGER_DB_RETRY_DELAY" env-default:"3"`
 	DBIdleTimeout  int    `env:"LEDGER_DB_IDLE_TIMEOUT" env-default:"30"`

@@ -16,31 +16,41 @@ import (
 	"go-core-ledger/internal/ledger"
 	"go-core-ledger/internal/money"
 	"go-core-ledger/internal/posting"
-	store "go-core-ledger/internal/store/pg"
 	"go-core-ledger/internal/uid"
 )
+
+// AccountService covers account and entry read/write operations used by the handler.
+// *store.Store satisfies this interface; define it here so the handler does not
+// import the storage package directly.
+type AccountService interface {
+	InsertAccount(ctx context.Context, acct ledger.Account) (ledger.Account, error)
+	GetAccount(ctx context.Context, id string) (ledger.Account, error)
+	GetJournalEntry(ctx context.Context, id string) (ledger.Entry, error)
+	GetPostingsByEntryID(ctx context.Context, entryID string) ([]ledger.Posting, error)
+	GetPostingsByAccountID(ctx context.Context, accountID string) ([]ledger.Posting, error)
+}
 
 // Handler implements ledgerv1connect.LedgerServiceHandler.
 type Handler struct {
 	ledgerv1connect.UnimplementedLedgerServiceHandler
-	store   *store.Store
-	posting *posting.Service
-	holds   *holds.Service
-	clock   ledger.Clock
+	accounts AccountService
+	posting  posting.Poster
+	holds    holds.HoldManager
+	clock    ledger.Clock
 }
 
 // New creates a Handler wired to the provided services.
 func New(
-	st *store.Store,
-	postSvc *posting.Service,
-	holdsSvc *holds.Service,
+	accounts AccountService,
+	postSvc posting.Poster,
+	holdsSvc holds.HoldManager,
 	clock ledger.Clock,
 ) *Handler {
 	return &Handler{
-		store:   st,
-		posting: postSvc,
-		holds:   holdsSvc,
-		clock:   clock,
+		accounts: accounts,
+		posting:  postSvc,
+		holds:    holdsSvc,
+		clock:    clock,
 	}
 }
 
@@ -84,7 +94,7 @@ func (h *Handler) CreateAccount(
 		ExternalRef:   msg.GetExternalRef(),
 	}
 
-	stored, err := h.store.InsertAccount(ctx, acct)
+	stored, err := h.accounts.InsertAccount(ctx, acct)
 	if err != nil {
 		return nil, domainErr(err)
 	}
@@ -101,7 +111,7 @@ func (h *Handler) GetAccount(
 	if req.Msg.GetId() == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("id is required"))
 	}
-	acct, err := h.store.GetAccount(ctx, req.Msg.GetId())
+	acct, err := h.accounts.GetAccount(ctx, req.Msg.GetId())
 	if err != nil {
 		return nil, domainErr(err)
 	}
@@ -161,11 +171,11 @@ func (h *Handler) GetEntry(
 	if req.Msg.GetId() == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("id is required"))
 	}
-	entry, err := h.store.GetJournalEntry(ctx, req.Msg.GetId())
+	entry, err := h.accounts.GetJournalEntry(ctx, req.Msg.GetId())
 	if err != nil {
 		return nil, domainErr(err)
 	}
-	postings, err := h.store.GetPostingsByEntryID(ctx, entry.ID)
+	postings, err := h.accounts.GetPostingsByEntryID(ctx, entry.ID)
 	if err != nil {
 		return nil, domainErr(err)
 	}
@@ -183,7 +193,7 @@ func (h *Handler) GetPostingsByAccount(
 	if req.Msg.GetAccountId() == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("account_id is required"))
 	}
-	ps, err := h.store.GetPostingsByAccountID(ctx, req.Msg.GetAccountId())
+	ps, err := h.accounts.GetPostingsByAccountID(ctx, req.Msg.GetAccountId())
 	if err != nil {
 		return nil, domainErr(err)
 	}

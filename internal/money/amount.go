@@ -1,8 +1,4 @@
-// Package money defines the Amount type for all monetary values in this service.
-// Never use float32 or float64 for money — not in domain code, adapters, tests, or logs.
-// All amounts are stored as int64 minor units (e.g. IDR 1500 = 1500, USD 15.00 = 1500).
-// When arithmetic produces a fractional minor unit, use an explicit named rounding function
-// (RoundHalfEven, etc.) and post the residual to a designated residual account.
+// Package money defines the amount type for all monetary values in this service.
 package money
 
 import (
@@ -11,7 +7,7 @@ import (
 	"math"
 )
 
-// Sentinel errors returned by Amount operations.
+// Errors returned by Amount operations.
 var (
 	ErrCurrencyMismatch = errors.New("currency mismatch")
 	ErrOverflow         = errors.New("amount overflow")
@@ -26,7 +22,7 @@ type Amount struct {
 
 // New returns an Amount. Returns ErrInvalidCurrency if currency is empty.
 func New(value int64, currency string) (Amount, error) {
-	if currency == "" {
+	if value := activeCurrency[currency]; !value {
 		return Amount{}, ErrInvalidCurrency
 	}
 	return Amount{value: value, currency: currency}, nil
@@ -125,8 +121,7 @@ func (a Amount) LessOrEqual(b Amount) (bool, error) {
 	return a.value <= b.value, nil
 }
 
-// String returns a human-readable representation, e.g. "IDR 100000".
-// Do not parse this format; it is for logging only.
+// String returns a human-readable representation, e.g. "IDR 100000". for logging only.
 func (a Amount) String() string {
 	return fmt.Sprintf("%s %d", a.currency, a.value)
 }

@@ -6,7 +6,7 @@ import (
 	"go-core-ledger/internal/money"
 )
 
-// CheckEntryBalances verifies invariant #1: sum(debits) == sum(credits) per currency.
+// CheckEntryBalances verifies sum(debits) == sum(credits) per currency.
 // Returns ErrEmptyPostings if len(postings) < 2, ErrUnbalancedEntry on mismatch.
 func CheckEntryBalances(postings []Posting) error {
 	if len(postings) < 2 {
@@ -63,7 +63,7 @@ func CheckEntryBalances(postings []Posting) error {
 	return nil
 }
 
-// CheckFloor verifies invariant #5: after debiting debitAmount the account's available
+// CheckFloor verifies that after debiting debitAmount the account's available
 // balance stays >= account.Floor. Returns nil when account.AllowNegative is true.
 func CheckFloor(account Account, debitAmount money.Amount) error {
 	if account.AllowNegative {

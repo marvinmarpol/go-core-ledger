@@ -83,7 +83,7 @@ func TestConcurrentPostings_BalanceConsistency(t *testing.T) {
 
 	st := store.NewStore(pool)
 	clock := fixedClock{t: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)}
-	svc := posting.NewService(pool, clock)
+	svc := posting.NewService(pool, st, clock)
 
 	const (
 		goroutines  = 20
@@ -161,7 +161,7 @@ func TestIdempotentPosting_ReturnsSameResult(t *testing.T) {
 
 	st := store.NewStore(pool)
 	clock := fixedClock{t: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)}
-	svc := posting.NewService(pool, clock)
+	svc := posting.NewService(pool, st, clock)
 
 	const (
 		goroutines = 10

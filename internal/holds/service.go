@@ -35,22 +35,26 @@ type CaptureRequest struct {
 	CreditAccountID string
 }
 
+// HoldManager is the interface for the hold reserve/capture/void/expire lifecycle.
+// Callers (e.g. the handler) depend on this interface, not the concrete Service.
+type HoldManager interface {
+	Reserve(ctx context.Context, req ReserveRequest) (ledger.Hold, error)
+	Capture(ctx context.Context, req CaptureRequest) (posting.Result, error)
+	Void(ctx context.Context, holdID string) (ledger.Hold, error)
+	Expire(ctx context.Context, holdID string) (ledger.Hold, error)
+}
+
 // Service manages hold lifecycle: reserve, capture, void, expire.
 type Service struct {
 	pool    *pgxpool.Pool
 	store   *store.Store
-	posting *posting.Service
+	posting posting.Poster
 	clock   ledger.Clock
 }
 
 // NewService creates a holds Service. All arguments must be non-nil.
-func NewService(pool *pgxpool.Pool, postSvc *posting.Service, clock ledger.Clock) *Service {
-	return &Service{
-		pool:    pool,
-		store:   store.NewStore(pool),
-		posting: postSvc,
-		clock:   clock,
-	}
+func NewService(pool *pgxpool.Pool, st *store.Store, postSvc posting.Poster, clock ledger.Clock) *Service {
+	return &Service{pool: pool, store: st, posting: postSvc, clock: clock}
 }
 
 // Reserve creates an active hold and increments the account's held_amount,

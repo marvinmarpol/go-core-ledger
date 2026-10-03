@@ -11,5 +11,5 @@ type Entry struct {
 	BookedAt       time.Time
 	ReversesID     string            // non-empty for reversal/correction entries
 	ExternalRef    string            // external transaction ID kept for traceability
-	Metadata       map[string]string // arbitrary product-engine context
+	Metadata       map[string]string // arbitrary metadata, eg. for product-engine context
 }

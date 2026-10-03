@@ -1,4 +1,4 @@
-// Package main is the entry point for the ledger API server.
+// Package main is the entry point for the ledger API.
 package main
 
 import (

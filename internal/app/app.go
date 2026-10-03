@@ -4,6 +4,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"time"
@@ -15,11 +16,12 @@ import (
 	"go-core-ledger/api/gen/ledger/v1/ledgerv1connect"
 	"go-core-ledger/internal/handler"
 	"go-core-ledger/internal/holds"
+	"go-core-ledger/internal/ledger"
 	"go-core-ledger/internal/posting"
 	store "go-core-ledger/internal/store/pg"
 )
 
-// wallClock is the real-time Clock implementation used in production.
+// wallClock is the realtime Clock implementation used in production.
 type wallClock struct{}
 
 func (wallClock) Now() time.Time { return time.Now().UTC() }
@@ -32,38 +34,62 @@ func Run() error {
 	}
 
 	ctx := context.Background()
-	dsn := fmt.Sprintf(
-		"host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
-		config.DBHost, config.DBPort, config.DBUser, config.DBPassword, config.DBName,
-	)
-
-	pool, err := pgxpool.New(ctx, dsn)
+	pool, err := connectDB(ctx, config)
 	if err != nil {
-		return fmt.Errorf("open db pool: %w", err)
+		return err
 	}
 	defer pool.Close()
 
-	if err := pool.Ping(ctx); err != nil {
-		return fmt.Errorf("ping db: %w", err)
+	h := buildHandler(pool, wallClock{})
+	return serveHTTP(ctx, h, config.ServiceAddress)
+}
+
+// connectDB opens and validates a pgxpool connection using the provided config.
+func connectDB(ctx context.Context, cfg Config) (*pgxpool.Pool, error) {
+	dsn := fmt.Sprintf(
+		"host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
+		cfg.DBHost, cfg.DBPort, cfg.DBUser, cfg.DBPassword, cfg.DBName,
+	)
+	poolCfg, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		return nil, fmt.Errorf("parse db config: %w", err)
 	}
+	poolCfg.MaxConns = cfg.DBPoolSize
+	poolCfg.MaxConnIdleTime = time.Duration(cfg.DBIdleTimeout) * time.Second
 
-	clock := wallClock{}
+	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
+	if err != nil {
+		return nil, fmt.Errorf("open db pool: %w", err)
+	}
+	if err := pool.Ping(ctx); err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("ping db: %w", err)
+	}
+	return pool, nil
+}
+
+// buildHandler constructs the full service graph and returns the Connect handler.
+// Call this with a test pool in integration tests to exercise wiring without binding a port.
+func buildHandler(pool *pgxpool.Pool, clock ledger.Clock) *handler.Handler {
 	st := store.NewStore(pool)
-	postSvc := posting.NewService(pool, clock)
-	holdsSvc := holds.NewService(pool, postSvc, clock)
-	h := handler.New(st, postSvc, holdsSvc, clock)
+	postSvc := posting.NewService(pool, st, clock)
+	holdsSvc := holds.NewService(pool, st, postSvc, clock)
+	return handler.New(st, postSvc, holdsSvc, clock)
+}
 
+// serveHTTP mounts the Connect handler on a chi router and starts the HTTP server.
+func serveHTTP(ctx context.Context, h *handler.Handler, addr string) error {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 
 	path, svcHandler := ledgerv1connect.NewLedgerServiceHandler(h)
-	fmt.Println(path)
+	log.Printf("ledger-api: Connect handler mounted at %s", path)
 	r.Mount(path, svcHandler)
 
-	fmt.Printf("ledger-api listening on %s\n", config.ServiceAddress)
+	log.Printf("ledger-api: listening on %s", addr)
 
 	srv := http.Server{
-		Addr:              config.ServiceAddress,
+		Addr:              addr,
 		Handler:           r,
 		ReadHeaderTimeout: 10 * time.Second,
 	}

@@ -35,6 +35,12 @@ type Result struct {
 	Postings []ledger.Posting
 }
 
+// Poster is the interface for committing journal entries via the 6-step protocol.
+// Callers (e.g. the handler) depend on this interface, not the concrete Service.
+type Poster interface {
+	Post(ctx context.Context, req Request) (Result, error)
+}
+
 // Service runs the 6-step posting protocol against a Postgres pool.
 type Service struct {
 	pool  *pgxpool.Pool
@@ -42,13 +48,9 @@ type Service struct {
 	clock ledger.Clock
 }
 
-// NewService returns a Service. clock must not be nil; use it for all time values.
-func NewService(pool *pgxpool.Pool, clock ledger.Clock) *Service {
-	return &Service{
-		pool:  pool,
-		store: store.NewStore(pool),
-		clock: clock,
-	}
+// NewService returns a Service. st and clock must not be nil.
+func NewService(pool *pgxpool.Pool, st *store.Store, clock ledger.Clock) *Service {
+	return &Service{pool: pool, store: st, clock: clock}
 }
 
 // Post commits a balanced journal entry and all its postings in one transaction.
