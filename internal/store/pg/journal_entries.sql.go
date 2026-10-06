@@ -16,7 +16,7 @@ const getJournalEntry = `-- name: GetJournalEntry :one
 SELECT id, idempotency_key, business_date, value_date, booked_at, reverses_id, external_ref, metadata, created_at FROM journal_entries WHERE id = $1
 `
 
-func (q *Queries) GetJournalEntry(ctx context.Context, id string) (JournalEntry, error) {
+func (q *Queries) GetJournalEntry(ctx context.Context, id pgtype.UUID) (JournalEntry, error) {
 	row := q.db.QueryRow(ctx, getJournalEntry, id)
 	var i JournalEntry
 	err := row.Scan(
@@ -61,12 +61,12 @@ RETURNING id, idempotency_key, business_date, value_date, booked_at, reverses_id
 `
 
 type InsertJournalEntryParams struct {
-	ID             string             `json:"id"`
+	ID             pgtype.UUID        `json:"id"`
 	IdempotencyKey string             `json:"idempotency_key"`
 	BusinessDate   pgtype.Date        `json:"business_date"`
 	ValueDate      pgtype.Date        `json:"value_date"`
 	BookedAt       pgtype.Timestamptz `json:"booked_at"`
-	ReversesID     pgtype.Text        `json:"reverses_id"`
+	ReversesID     pgtype.UUID        `json:"reverses_id"`
 	ExternalRef    pgtype.Text        `json:"external_ref"`
 	Metadata       json.RawMessage    `json:"metadata"`
 }

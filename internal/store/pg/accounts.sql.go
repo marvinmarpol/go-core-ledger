@@ -15,7 +15,7 @@ const getAccount = `-- name: GetAccount :one
 SELECT id, currency, balance, held_amount, floor, allow_negative, version, external_ref, created_at, updated_at FROM accounts WHERE id = $1
 `
 
-func (q *Queries) GetAccount(ctx context.Context, id string) (Account, error) {
+func (q *Queries) GetAccount(ctx context.Context, id pgtype.UUID) (Account, error) {
 	row := q.db.QueryRow(ctx, getAccount, id)
 	var i Account
 	err := row.Scan(
@@ -59,7 +59,7 @@ const getAccountForUpdate = `-- name: GetAccountForUpdate :one
 SELECT id, currency, balance, held_amount, floor, allow_negative, version, external_ref, created_at, updated_at FROM accounts WHERE id = $1 FOR UPDATE
 `
 
-func (q *Queries) GetAccountForUpdate(ctx context.Context, id string) (Account, error) {
+func (q *Queries) GetAccountForUpdate(ctx context.Context, id pgtype.UUID) (Account, error) {
 	row := q.db.QueryRow(ctx, getAccountForUpdate, id)
 	var i Account
 	err := row.Scan(
@@ -84,7 +84,7 @@ RETURNING id, currency, balance, held_amount, floor, allow_negative, version, ex
 `
 
 type InsertAccountParams struct {
-	ID            string      `json:"id"`
+	ID            pgtype.UUID `json:"id"`
 	Currency      string      `json:"currency"`
 	Balance       int64       `json:"balance"`
 	HeldAmount    int64       `json:"held_amount"`
@@ -133,10 +133,10 @@ RETURNING id, currency, balance, held_amount, floor, allow_negative, version, ex
 `
 
 type UpdateAccountBalanceParams struct {
-	ID         string `json:"id"`
-	Balance    int64  `json:"balance"`
-	HeldAmount int64  `json:"held_amount"`
-	Version    int64  `json:"version"`
+	ID         pgtype.UUID `json:"id"`
+	Balance    int64       `json:"balance"`
+	HeldAmount int64       `json:"held_amount"`
+	Version    int64       `json:"version"`
 }
 
 // Optimistic lock via version check; returns updated row or no rows if version mismatch.

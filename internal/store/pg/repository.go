@@ -42,7 +42,11 @@ func (s *Store) WithTx(tx pgx.Tx) *Store {
 
 // GetAccount fetches an account by ID.
 func (s *Store) GetAccount(ctx context.Context, id string) (ledger.Account, error) {
-	row, err := s.q.GetAccount(ctx, id)
+	uuid, err := parseUUID(id)
+	if err != nil {
+		return ledger.Account{}, ledger.ErrParseUUID
+	}
+	row, err := s.q.GetAccount(ctx, uuid)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ledger.Account{}, ledger.ErrAccountNotFound
 	}
@@ -67,7 +71,11 @@ func (s *Store) GetAccountByExternalRef(ctx context.Context, externalRef string)
 // GetAccountForUpdate locks the account row (SELECT … FOR UPDATE).
 // Must be called inside a transaction with rows ordered by account_id to prevent deadlocks.
 func (s *Store) GetAccountForUpdate(ctx context.Context, id string) (ledger.Account, error) {
-	row, err := s.q.GetAccountForUpdate(ctx, id)
+	uuid, err := parseUUID(id)
+	if err != nil {
+		return ledger.Account{}, ledger.ErrParseUUID
+	}
+	row, err := s.q.GetAccountForUpdate(ctx, uuid)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ledger.Account{}, ledger.ErrAccountNotFound
 	}
@@ -79,8 +87,12 @@ func (s *Store) GetAccountForUpdate(ctx context.Context, id string) (ledger.Acco
 
 // InsertAccount persists a new account row and returns the stored record.
 func (s *Store) InsertAccount(ctx context.Context, a ledger.Account) (ledger.Account, error) {
+	uuid, err := parseUUID(a.ID)
+	if err != nil {
+		return ledger.Account{}, ledger.ErrParseUUID
+	}
 	row, err := s.q.InsertAccount(ctx, InsertAccountParams{
-		ID:            a.ID,
+		ID:            uuid,
 		Currency:      a.Currency,
 		Balance:       a.Balance.Value(),
 		HeldAmount:    a.HeldAmount.Value(),
@@ -98,8 +110,12 @@ func (s *Store) InsertAccount(ctx context.Context, a ledger.Account) (ledger.Acc
 // UpdateAccountBalance applies new balance and held_amount only when the stored
 // version matches a.Version (optimistic lock). Returns ErrVersionConflict on mismatch.
 func (s *Store) UpdateAccountBalance(ctx context.Context, a ledger.Account) (ledger.Account, error) {
+	uuid, err := parseUUID(a.ID)
+	if err != nil {
+		return ledger.Account{}, ledger.ErrParseUUID
+	}
 	row, err := s.q.UpdateAccountBalance(ctx, UpdateAccountBalanceParams{
-		ID:         a.ID,
+		ID:         uuid,
 		Balance:    a.Balance.Value(),
 		HeldAmount: a.HeldAmount.Value(),
 		Version:    a.Version,
@@ -117,7 +133,11 @@ func (s *Store) UpdateAccountBalance(ctx context.Context, a ledger.Account) (led
 
 // GetJournalEntry fetches a journal entry by ID.
 func (s *Store) GetJournalEntry(ctx context.Context, id string) (ledger.Entry, error) {
-	row, err := s.q.GetJournalEntry(ctx, id)
+	uuid, err := parseUUID(id)
+	if err != nil {
+		return ledger.Entry{}, ledger.ErrParseUUID
+	}
+	row, err := s.q.GetJournalEntry(ctx, uuid)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ledger.Entry{}, ledger.ErrEntryNotFound
 	}
@@ -142,17 +162,21 @@ func (s *Store) GetJournalEntryByIdempotencyKey(ctx context.Context, key string)
 // InsertJournalEntry inserts a new journal entry. Returns ErrDuplicateIdempotencyKey
 // when a unique constraint on idempotency_key is violated (concurrent retry).
 func (s *Store) InsertJournalEntry(ctx context.Context, e ledger.Entry) (ledger.Entry, error) {
+	uuid, err := parseUUID(e.ID)
+	if err != nil {
+		return ledger.Entry{}, ledger.ErrParseUUID
+	}
 	meta, err := json.Marshal(e.Metadata)
 	if err != nil {
 		return ledger.Entry{}, fmt.Errorf("marshal entry metadata: %w", err)
 	}
 	row, err := s.q.InsertJournalEntry(ctx, InsertJournalEntryParams{
-		ID:             e.ID,
+		ID:             uuid,
 		IdempotencyKey: e.IdempotencyKey,
 		BusinessDate:   pgtype.Date{Time: e.BusinessDate, Valid: true},
 		ValueDate:      pgtype.Date{Time: e.ValueDate, Valid: true},
 		BookedAt:       pgtype.Timestamptz{Time: e.BookedAt, Valid: true},
-		ReversesID:     textOrNull(e.ReversesID),
+		ReversesID:     uuidOrNull(e.ReversesID),
 		ExternalRef:    textOrNull(e.ExternalRef),
 		Metadata:       meta,
 	})
@@ -170,14 +194,26 @@ func (s *Store) InsertJournalEntry(ctx context.Context, e ledger.Entry) (ledger.
 
 // InsertPosting persists a new posting leg and returns the stored record.
 func (s *Store) InsertPosting(ctx context.Context, p ledger.Posting) (ledger.Posting, error) {
+	id, err := parseUUID(p.ID)
+	if err != nil {
+		return ledger.Posting{}, ledger.ErrParseUUID
+	}
+	entryID, err := parseUUID(p.EntryID)
+	if err != nil {
+		return ledger.Posting{}, ledger.ErrParseUUID
+	}
+	accountID, err := parseUUID(p.AccountID)
+	if err != nil {
+		return ledger.Posting{}, ledger.ErrParseUUID
+	}
 	dir, err := fromDirection(p.Direction)
 	if err != nil {
 		return ledger.Posting{}, err
 	}
 	row, err := s.q.InsertPosting(ctx, InsertPostingParams{
-		ID:        p.ID,
-		EntryID:   p.EntryID,
-		AccountID: p.AccountID,
+		ID:        id,
+		EntryID:   entryID,
+		AccountID: accountID,
 		Amount:    p.Amount.Value(),
 		Direction: dir,
 		Currency:  p.Amount.Currency(),
@@ -190,7 +226,11 @@ func (s *Store) InsertPosting(ctx context.Context, p ledger.Posting) (ledger.Pos
 
 // GetPostingsByAccountID returns all postings for an account, ordered by created_at.
 func (s *Store) GetPostingsByAccountID(ctx context.Context, accountID string) ([]ledger.Posting, error) {
-	rows, err := s.q.GetPostingsByAccountID(ctx, accountID)
+	uuid, err := parseUUID(accountID)
+	if err != nil {
+		return nil, ledger.ErrParseUUID
+	}
+	rows, err := s.q.GetPostingsByAccountID(ctx, uuid)
 	if err != nil {
 		return nil, fmt.Errorf("get postings by account: %w", err)
 	}
@@ -199,7 +239,11 @@ func (s *Store) GetPostingsByAccountID(ctx context.Context, accountID string) ([
 
 // GetPostingsByEntryID returns all postings for a journal entry, ordered by created_at.
 func (s *Store) GetPostingsByEntryID(ctx context.Context, entryID string) ([]ledger.Posting, error) {
-	rows, err := s.q.GetPostingsByEntryID(ctx, entryID)
+	uuid, err := parseUUID(entryID)
+	if err != nil {
+		return nil, ledger.ErrParseUUID
+	}
+	rows, err := s.q.GetPostingsByEntryID(ctx, uuid)
 	if err != nil {
 		return nil, fmt.Errorf("get postings by entry: %w", err)
 	}
@@ -210,9 +254,17 @@ func (s *Store) GetPostingsByEntryID(ctx context.Context, entryID string) ([]led
 
 // InsertHold persists a new hold and returns the stored record.
 func (s *Store) InsertHold(ctx context.Context, h ledger.Hold) (ledger.Hold, error) {
+	id, err := parseUUID(h.ID)
+	if err != nil {
+		return ledger.Hold{}, ledger.ErrParseUUID
+	}
+	accountID, err := parseUUID(h.AccountID)
+	if err != nil {
+		return ledger.Hold{}, ledger.ErrParseUUID
+	}
 	row, err := s.q.InsertHold(ctx, InsertHoldParams{
-		ID:          h.ID,
-		AccountID:   h.AccountID,
+		ID:          id,
+		AccountID:   accountID,
 		Amount:      h.Amount.Value(),
 		Currency:    h.Amount.Currency(),
 		ExpiresAt:   timeOrNull(h.ExpiresAt),
@@ -226,7 +278,11 @@ func (s *Store) InsertHold(ctx context.Context, h ledger.Hold) (ledger.Hold, err
 
 // GetHold fetches a hold by ID without locking.
 func (s *Store) GetHold(ctx context.Context, id string) (ledger.Hold, error) {
-	row, err := s.q.GetHold(ctx, id)
+	uuid, err := parseUUID(id)
+	if err != nil {
+		return ledger.Hold{}, ledger.ErrParseUUID
+	}
+	row, err := s.q.GetHold(ctx, uuid)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ledger.Hold{}, ledger.ErrHoldNotFound
 	}
@@ -238,7 +294,11 @@ func (s *Store) GetHold(ctx context.Context, id string) (ledger.Hold, error) {
 
 // GetHoldForUpdate locks the hold row (SELECT … FOR UPDATE). Must be called inside a transaction.
 func (s *Store) GetHoldForUpdate(ctx context.Context, id string) (ledger.Hold, error) {
-	row, err := s.q.GetHoldForUpdate(ctx, id)
+	uuid, err := parseUUID(id)
+	if err != nil {
+		return ledger.Hold{}, ledger.ErrParseUUID
+	}
+	row, err := s.q.GetHoldForUpdate(ctx, uuid)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ledger.Hold{}, ledger.ErrHoldNotFound
 	}
@@ -250,7 +310,11 @@ func (s *Store) GetHoldForUpdate(ctx context.Context, id string) (ledger.Hold, e
 
 // GetActiveHoldsByAccountID returns all active holds for an account, ordered by created_at.
 func (s *Store) GetActiveHoldsByAccountID(ctx context.Context, accountID string) ([]ledger.Hold, error) {
-	rows, err := s.q.GetActiveHoldsByAccountID(ctx, accountID)
+	uuid, err := parseUUID(accountID)
+	if err != nil {
+		return nil, ledger.ErrParseUUID
+	}
+	rows, err := s.q.GetActiveHoldsByAccountID(ctx, uuid)
 	if err != nil {
 		return nil, fmt.Errorf("get active holds: %w", err)
 	}
@@ -269,7 +333,7 @@ func (s *Store) GetExpiredHolds(ctx context.Context, limit int32) ([]ledger.Hold
 // UpdateHoldStatus transitions a hold to the given status.
 func (s *Store) UpdateHoldStatus(ctx context.Context, id string, status ledger.HoldStatus) (ledger.Hold, error) {
 	row, err := s.q.UpdateHoldStatus(ctx, UpdateHoldStatusParams{
-		ID:     id,
+		ID:     uuidOrNull(id),
 		Status: HoldStatus(status),
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -372,14 +436,14 @@ func toAccount(row Account) (ledger.Account, error) {
 		return ledger.Account{}, fmt.Errorf("account floor: %w", err)
 	}
 	return ledger.Account{
-		ID:            row.ID,
+		ID:            row.ID.String(),
 		Currency:      row.Currency,
 		Balance:       bal,
 		HeldAmount:    held,
 		Floor:         floor,
 		AllowNegative: row.AllowNegative,
 		Version:       row.Version,
-		ExternalRef:   nullToString(row.ExternalRef),
+		ExternalRef:   nullTextToString(row.ExternalRef),
 	}, nil
 }
 
@@ -391,13 +455,13 @@ func toEntry(row JournalEntry) (ledger.Entry, error) {
 		}
 	}
 	return ledger.Entry{
-		ID:             row.ID,
+		ID:             row.ID.String(),
 		IdempotencyKey: row.IdempotencyKey,
 		BusinessDate:   row.BusinessDate.Time,
 		ValueDate:      row.ValueDate.Time,
 		BookedAt:       row.BookedAt.Time,
-		ReversesID:     nullToString(row.ReversesID),
-		ExternalRef:    nullToString(row.ExternalRef),
+		ReversesID:     nullUUIDToString(row.ReversesID),
+		ExternalRef:    nullTextToString(row.ExternalRef),
 		Metadata:       meta,
 	}, nil
 }
@@ -412,9 +476,9 @@ func toPosting(row Posting) (ledger.Posting, error) {
 		return ledger.Posting{}, err
 	}
 	return ledger.Posting{
-		ID:        row.ID,
-		EntryID:   row.EntryID,
-		AccountID: row.AccountID,
+		ID:        nullUUIDToString(row.ID),
+		EntryID:   nullUUIDToString(row.EntryID),
+		AccountID: nullUUIDToString(row.AccountID),
 		Amount:    amt,
 		Direction: dir,
 	}, nil
@@ -430,12 +494,12 @@ func toHold(row Hold) (ledger.Hold, error) {
 		expiresAt = row.ExpiresAt.Time
 	}
 	return ledger.Hold{
-		ID:          row.ID,
-		AccountID:   row.AccountID,
+		ID:          nullUUIDToString(row.ID),
+		AccountID:   nullUUIDToString(row.AccountID),
 		Amount:      amt,
 		Status:      ledger.HoldStatus(row.Status),
 		ExpiresAt:   expiresAt,
-		ExternalRef: nullToString(row.ExternalRef),
+		ExternalRef: nullTextToString(row.ExternalRef),
 	}, nil
 }
 
@@ -492,11 +556,26 @@ func textOrNull(s string) pgtype.Text {
 	return pgtype.Text{String: s, Valid: true}
 }
 
-func nullToString(t pgtype.Text) string {
+func uuidOrNull(s string) pgtype.UUID {
+	uuid, err := parseUUID(s)
+	if err != nil {
+		return pgtype.UUID{}
+	}
+	return uuid
+}
+
+func nullTextToString(t pgtype.Text) string {
 	if !t.Valid {
 		return ""
 	}
 	return t.String
+}
+
+func nullUUIDToString(t pgtype.UUID) string {
+	if !t.Valid {
+		return ""
+	}
+	return t.String()
 }
 
 func timeOrNull(t time.Time) pgtype.Timestamptz {

@@ -15,7 +15,7 @@ const getActiveHoldsByAccountID = `-- name: GetActiveHoldsByAccountID :many
 SELECT id, account_id, amount, currency, status, expires_at, external_ref, created_at, updated_at FROM holds WHERE account_id = $1 AND status = 'active' ORDER BY created_at
 `
 
-func (q *Queries) GetActiveHoldsByAccountID(ctx context.Context, accountID string) ([]Hold, error) {
+func (q *Queries) GetActiveHoldsByAccountID(ctx context.Context, accountID pgtype.UUID) ([]Hold, error) {
 	rows, err := q.db.Query(ctx, getActiveHoldsByAccountID, accountID)
 	if err != nil {
 		return nil, err
@@ -87,7 +87,7 @@ const getHold = `-- name: GetHold :one
 SELECT id, account_id, amount, currency, status, expires_at, external_ref, created_at, updated_at FROM holds WHERE id = $1
 `
 
-func (q *Queries) GetHold(ctx context.Context, id string) (Hold, error) {
+func (q *Queries) GetHold(ctx context.Context, id pgtype.UUID) (Hold, error) {
 	row := q.db.QueryRow(ctx, getHold, id)
 	var i Hold
 	err := row.Scan(
@@ -108,7 +108,7 @@ const getHoldForUpdate = `-- name: GetHoldForUpdate :one
 SELECT id, account_id, amount, currency, status, expires_at, external_ref, created_at, updated_at FROM holds WHERE id = $1 FOR UPDATE
 `
 
-func (q *Queries) GetHoldForUpdate(ctx context.Context, id string) (Hold, error) {
+func (q *Queries) GetHoldForUpdate(ctx context.Context, id pgtype.UUID) (Hold, error) {
 	row := q.db.QueryRow(ctx, getHoldForUpdate, id)
 	var i Hold
 	err := row.Scan(
@@ -132,8 +132,8 @@ RETURNING id, account_id, amount, currency, status, expires_at, external_ref, cr
 `
 
 type InsertHoldParams struct {
-	ID          string             `json:"id"`
-	AccountID   string             `json:"account_id"`
+	ID          pgtype.UUID        `json:"id"`
+	AccountID   pgtype.UUID        `json:"account_id"`
 	Amount      int64              `json:"amount"`
 	Currency    string             `json:"currency"`
 	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
@@ -172,8 +172,8 @@ RETURNING id, account_id, amount, currency, status, expires_at, external_ref, cr
 `
 
 type UpdateHoldStatusParams struct {
-	ID     string     `json:"id"`
-	Status HoldStatus `json:"status"`
+	ID     pgtype.UUID `json:"id"`
+	Status HoldStatus  `json:"status"`
 }
 
 func (q *Queries) UpdateHoldStatus(ctx context.Context, arg UpdateHoldStatusParams) (Hold, error) {

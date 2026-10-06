@@ -7,13 +7,15 @@ package store
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const getPostingsByAccountID = `-- name: GetPostingsByAccountID :many
 SELECT id, entry_id, account_id, amount, direction, currency, created_at FROM postings WHERE account_id = $1 ORDER BY created_at
 `
 
-func (q *Queries) GetPostingsByAccountID(ctx context.Context, accountID string) ([]Posting, error) {
+func (q *Queries) GetPostingsByAccountID(ctx context.Context, accountID pgtype.UUID) ([]Posting, error) {
 	rows, err := q.db.Query(ctx, getPostingsByAccountID, accountID)
 	if err != nil {
 		return nil, err
@@ -45,7 +47,7 @@ const getPostingsByEntryID = `-- name: GetPostingsByEntryID :many
 SELECT id, entry_id, account_id, amount, direction, currency, created_at FROM postings WHERE entry_id = $1 ORDER BY created_at
 `
 
-func (q *Queries) GetPostingsByEntryID(ctx context.Context, entryID string) ([]Posting, error) {
+func (q *Queries) GetPostingsByEntryID(ctx context.Context, entryID pgtype.UUID) ([]Posting, error) {
 	rows, err := q.db.Query(ctx, getPostingsByEntryID, entryID)
 	if err != nil {
 		return nil, err
@@ -80,9 +82,9 @@ RETURNING id, entry_id, account_id, amount, direction, currency, created_at
 `
 
 type InsertPostingParams struct {
-	ID        string           `json:"id"`
-	EntryID   string           `json:"entry_id"`
-	AccountID string           `json:"account_id"`
+	ID        pgtype.UUID      `json:"id"`
+	EntryID   pgtype.UUID      `json:"entry_id"`
+	AccountID pgtype.UUID      `json:"account_id"`
 	Amount    int64            `json:"amount"`
 	Direction PostingDirection `json:"direction"`
 	Currency  string           `json:"currency"`

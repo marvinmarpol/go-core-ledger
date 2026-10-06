@@ -11,18 +11,18 @@ import (
 )
 
 type Querier interface {
-	GetAccount(ctx context.Context, id string) (Account, error)
+	GetAccount(ctx context.Context, id pgtype.UUID) (Account, error)
 	GetAccountByExternalRef(ctx context.Context, externalRef pgtype.Text) (Account, error)
-	GetAccountForUpdate(ctx context.Context, id string) (Account, error)
-	GetActiveHoldsByAccountID(ctx context.Context, accountID string) ([]Hold, error)
+	GetAccountForUpdate(ctx context.Context, id pgtype.UUID) (Account, error)
+	GetActiveHoldsByAccountID(ctx context.Context, accountID pgtype.UUID) ([]Hold, error)
 	// Hold expiry worker: fetch expired active holds for processing.
 	GetExpiredHolds(ctx context.Context, limit int32) ([]Hold, error)
-	GetHold(ctx context.Context, id string) (Hold, error)
-	GetHoldForUpdate(ctx context.Context, id string) (Hold, error)
-	GetJournalEntry(ctx context.Context, id string) (JournalEntry, error)
+	GetHold(ctx context.Context, id pgtype.UUID) (Hold, error)
+	GetHoldForUpdate(ctx context.Context, id pgtype.UUID) (Hold, error)
+	GetJournalEntry(ctx context.Context, id pgtype.UUID) (JournalEntry, error)
 	GetJournalEntryByIdempotencyKey(ctx context.Context, idempotencyKey string) (JournalEntry, error)
-	GetPostingsByAccountID(ctx context.Context, accountID string) ([]Posting, error)
-	GetPostingsByEntryID(ctx context.Context, entryID string) ([]Posting, error)
+	GetPostingsByAccountID(ctx context.Context, accountID pgtype.UUID) ([]Posting, error)
+	GetPostingsByEntryID(ctx context.Context, entryID pgtype.UUID) ([]Posting, error)
 	// Relay worker: fetch next batch of unpublished events in insertion order.
 	GetUnpublishedOutboxEvents(ctx context.Context, limit int32) ([]OutboxEvent, error)
 	InsertAccount(ctx context.Context, arg InsertAccountParams) (Account, error)

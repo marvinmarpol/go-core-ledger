@@ -99,7 +99,7 @@ func (ns NullPostingDirection) Value() (driver.Value, error) {
 }
 
 type Account struct {
-	ID            string             `json:"id"`
+	ID            pgtype.UUID        `json:"id"`
 	Currency      string             `json:"currency"`
 	Balance       int64              `json:"balance"`
 	HeldAmount    int64              `json:"held_amount"`
@@ -112,8 +112,8 @@ type Account struct {
 }
 
 type Hold struct {
-	ID          string             `json:"id"`
-	AccountID   string             `json:"account_id"`
+	ID          pgtype.UUID        `json:"id"`
+	AccountID   pgtype.UUID        `json:"account_id"`
 	Amount      int64              `json:"amount"`
 	Currency    string             `json:"currency"`
 	Status      HoldStatus         `json:"status"`
@@ -124,12 +124,12 @@ type Hold struct {
 }
 
 type JournalEntry struct {
-	ID             string             `json:"id"`
+	ID             pgtype.UUID        `json:"id"`
 	IdempotencyKey string             `json:"idempotency_key"`
 	BusinessDate   pgtype.Date        `json:"business_date"`
 	ValueDate      pgtype.Date        `json:"value_date"`
 	BookedAt       pgtype.Timestamptz `json:"booked_at"`
-	ReversesID     pgtype.Text        `json:"reverses_id"`
+	ReversesID     pgtype.UUID        `json:"reverses_id"`
 	ExternalRef    pgtype.Text        `json:"external_ref"`
 	Metadata       json.RawMessage    `json:"metadata"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
@@ -146,9 +146,9 @@ type OutboxEvent struct {
 }
 
 type Posting struct {
-	ID        string             `json:"id"`
-	EntryID   string             `json:"entry_id"`
-	AccountID string             `json:"account_id"`
+	ID        pgtype.UUID        `json:"id"`
+	EntryID   pgtype.UUID        `json:"entry_id"`
+	AccountID pgtype.UUID        `json:"account_id"`
 	Amount    int64              `json:"amount"`
 	Direction PostingDirection   `json:"direction"`
 	Currency  string             `json:"currency"`

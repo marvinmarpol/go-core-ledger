@@ -15,4 +15,5 @@ var (
 	ErrHoldNotFound            = errors.New("hold not found")
 	ErrDuplicateIdempotencyKey = errors.New("journal entry with this idempotency key already exists")
 	ErrVersionConflict         = errors.New("account version conflict: concurrent modification detected")
+	ErrParseUUID               = errors.New("parse uuid failed")
 )
