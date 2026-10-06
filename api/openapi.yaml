@@ -1,0 +1,304 @@
+openapi: 3.0.0
+info:
+  title: go-core-ledger API
+  version: 1.0.0
+  description: >-
+    Connect/HTTP+JSON collection for the go-core-ledger service.
+
+
+    Run folders in order: 01 → 02 → 03 → 04.
+
+    Account A is created with allow_negative:true so it can act as the bank
+    funding source for all flows.
+
+
+    Base URL: http://localhost:8080
+
+    Start the server: make run
+servers:
+  - url: http://localhost:8080
+paths:
+  /ledger.v1.LedgerService/CreateAccount:
+    post:
+      summary: Create Account A (funding source)
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          schema:
+            type: integer
+          example: 1
+      responses: {}
+      tags:
+        - 01 - Account Management
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                currency:
+                  type: string
+                floor:
+                  type: object
+                  properties:
+                    value:
+                      type: integer
+                    currency:
+                      type: string
+                allow_negative:
+                  type: boolean
+                external_ref:
+                  type: string
+            example:
+              currency: IDR
+              floor:
+                value: 0
+                currency: IDR
+              allow_negative: true
+              external_ref: bank-funding-source
+  /ledger.v1.LedgerService/GetAccount:
+    post:
+      summary: Get Account A
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          schema:
+            type: integer
+          example: 1
+      responses: {}
+      tags:
+        - 01 - Account Management
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+            example:
+              id: ''
+  /ledger.v1.LedgerService/PostEntry:
+    post:
+      summary: Post Entry — A → B (IDR 50,000)
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          schema:
+            type: integer
+          example: 1
+      responses: {}
+      tags:
+        - 02 - Direct Transfer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                idempotency_key:
+                  type: string
+                business_date:
+                  type: string
+                  format: date-time
+                value_date:
+                  type: string
+                  format: date-time
+                external_ref:
+                  type: string
+                metadata:
+                  type: object
+                  properties:
+                    source:
+                      type: string
+                    description:
+                      type: string
+                postings:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      account_id:
+                        type: string
+                      amount:
+                        type: object
+                        properties:
+                          value:
+                            type: integer
+                          currency:
+                            type: string
+                      direction:
+                        type: string
+            example:
+              idempotency_key: txn-transfer-001
+              business_date: '2026-10-06T00:00:00Z'
+              value_date: '2026-10-06T00:00:00Z'
+              external_ref: payment-001
+              metadata:
+                source: postman
+                description: direct transfer demo
+              postings:
+                - account_id: ''
+                  amount:
+                    value: 50000
+                    currency: IDR
+                  direction: DEBIT
+                - account_id: ''
+                  amount:
+                    value: 50000
+                    currency: IDR
+                  direction: CREDIT
+  /ledger.v1.LedgerService/GetEntry:
+    post:
+      summary: Get Entry
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          schema:
+            type: integer
+          example: 1
+      responses: {}
+      tags:
+        - 02 - Direct Transfer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+            example:
+              id: ''
+  /ledger.v1.LedgerService/GetPostingsByAccount:
+    post:
+      summary: Get Postings by Account A
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          schema:
+            type: integer
+          example: 1
+      responses: {}
+      tags:
+        - 02 - Direct Transfer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                account_id:
+                  type: string
+            example:
+              account_id: ''
+  /ledger.v1.LedgerService/ReserveHold:
+    post:
+      summary: Reserve Hold on C (IDR 100,000)
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          schema:
+            type: integer
+          example: 1
+      responses: {}
+      tags:
+        - 03 - Hold → Capture
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                account_id:
+                  type: string
+                amount:
+                  type: object
+                  properties:
+                    value:
+                      type: integer
+                    currency:
+                      type: string
+                expires_at:
+                  type: string
+                  format: date-time
+                external_ref:
+                  type: string
+            example:
+              account_id: ''
+              amount:
+                value: 100000
+                currency: IDR
+              expires_at: '2099-01-01T00:00:00Z'
+              external_ref: preauth-001
+  /ledger.v1.LedgerService/CaptureHold:
+    post:
+      summary: Capture Hold (settle C → D)
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          schema:
+            type: integer
+          example: 1
+      responses: {}
+      tags:
+        - 03 - Hold → Capture
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                hold_id:
+                  type: string
+                idempotency_key:
+                  type: string
+                business_date:
+                  type: string
+                  format: date-time
+                value_date:
+                  type: string
+                  format: date-time
+                credit_account_id:
+                  type: string
+                external_ref:
+                  type: string
+                metadata:
+                  type: object
+                  properties:
+                    source:
+                      type: string
+                    hold_ref:
+                      type: string
+            example:
+              hold_id: ''
+              idempotency_key: capture-001
+              business_date: '2026-10-06T00:00:00Z'
+              value_date: '2026-10-06T00:00:00Z'
+              credit_account_id: ''
+              external_ref: settlement-001
+              metadata:
+                source: postman
+                hold_ref: preauth-001
+  /ledger.v1.LedgerService/VoidHold:
+    post:
+      summary: Void Hold
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          schema:
+            type: integer
+          example: 1
+      responses: {}
+      tags:
+        - 04 - Hold → Void
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                hold_id:
+                  type: string
+            example:
+              hold_id: ''

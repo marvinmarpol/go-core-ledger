@@ -1,13 +1,14 @@
 # Variables
 GO_MAIN := ./cmd/ledger-api
+GO_WORKER := ./cmd/ledger-worker
 BUILD_DIR := ./dist
 EXECUTABLE := $(BUILD_DIR)/myapp
 DATABASE_URL ?= postgres://admin:admin123@localhost:5432/core_ledger?sslmode=disable
 
 # Targets
-.PHONY: all build wire proto test test-race test-int lint sqlc migrate-up run clean setup
+.PHONY: all build build-worker wire proto test test-race test-int lint sqlc migrate-up run run-worker clean setup
 
-all: wire test run
+all: setup sqlc proto lint test run
 
 build:
 	@echo "Building the project..."
@@ -51,9 +52,18 @@ migrate-down:
 	@echo "Roll back a single database migration from the current version..."
 	@go run -mod=mod github.com/pressly/goose/v3/cmd/goose -dir db/migrations postgres "$(DATABASE_URL)" down
 
+build-worker:
+	@echo "Building ledger-worker..."
+	@mkdir -p $(BUILD_DIR)
+	@go build -o $(BUILD_DIR)/ledger-worker $(GO_WORKER)
+
 run: build
 	@echo "Running the executable..."
 	@$(EXECUTABLE)
+
+run-worker: build-worker
+	@echo "Running ledger-worker..."
+	@$(BUILD_DIR)/ledger-worker
 
 setup:
 	@echo "Installing dev tools..."

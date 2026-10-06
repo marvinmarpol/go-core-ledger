@@ -347,6 +347,35 @@ func (s *Store) UpdateHoldStatus(ctx context.Context, id string, status ledger.H
 
 // ── Outbox events ─────────────────────────────────────────────────────────────
 
+// ── Verification ──────────────────────────────────────────────────────────────
+
+// BalanceMismatch is a ledger invariant violation: stored balance ≠ sum of postings.
+type BalanceMismatch struct {
+	AccountID       string
+	Currency        string
+	StoredBalance   int64
+	ComputedBalance int64
+}
+
+// VerifyAccountBalances returns every account whose stored balance diverges from
+// the sum of its postings. An empty slice means the ledger is consistent.
+func (s *Store) VerifyAccountBalances(ctx context.Context) ([]BalanceMismatch, error) {
+	rows, err := s.q.GetBalanceMismatches(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("verify account balances: %w", err)
+	}
+	out := make([]BalanceMismatch, len(rows))
+	for i, r := range rows {
+		out[i] = BalanceMismatch{
+			AccountID:       r.ID.String(),
+			Currency:        r.Currency,
+			StoredBalance:   r.StoredBalance,
+			ComputedBalance: r.ComputedBalance,
+		}
+	}
+	return out, nil
+}
+
 // OutboxEventInput carries parameters for inserting a new outbox event.
 // ID must be a UUID v4 string from uid.New().
 type OutboxEventInput struct {

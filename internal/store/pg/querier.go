@@ -15,6 +15,9 @@ type Querier interface {
 	GetAccountByExternalRef(ctx context.Context, externalRef pgtype.Text) (Account, error)
 	GetAccountForUpdate(ctx context.Context, id pgtype.UUID) (Account, error)
 	GetActiveHoldsByAccountID(ctx context.Context, accountID pgtype.UUID) ([]Hold, error)
+	// Verification job: returns accounts whose stored balance diverges from the
+	// sum of their postings. Any row here is a ledger invariant violation.
+	GetBalanceMismatches(ctx context.Context) ([]GetBalanceMismatchesRow, error)
 	// Hold expiry worker: fetch expired active holds for processing.
 	GetExpiredHolds(ctx context.Context, limit int32) ([]Hold, error)
 	GetHold(ctx context.Context, id pgtype.UUID) (Hold, error)
